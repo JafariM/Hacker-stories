@@ -19,11 +19,28 @@ const App = () => {
       objectID: 1,
     },
   ];
-  const [searchTerm, setSearchTerm] = React.useState('');
+  //set a custom hook that syn value of search and local storage 
 
+  const useSemiPersistentState = (key, initialState) => {
+    const [value, setValue] = React.useState(
+      //the initial value is either the one from search history or 'React' word
+      localStorage.getItem(key) || initialState
+    );
+
+    //set use effect hook to keep history of last search
+    React.useEffect(() => {
+      localStorage.setItem(key, value);  //use a flexible key to do not overwrite the value of local storage
+    }, [key, value]);
+
+    return [value, setValue];
+  }
+  const [searchTerm, setSearchTerm] = useSemiPersistentState('search', 'React');
+
+
+
+  //received the value of search input and update the setSearchTerm function
   const handleSearch = (event) => {
     setSearchTerm(event.target.value);
-    console.log(event.target.value);
   };
 
   // filter stories array by value reciving from search input 
@@ -34,42 +51,39 @@ const App = () => {
   return (
     <div>
       <h1>My Hacker Stories</h1>
-      <Search onSearch={handleSearch} />
+      <Search search={searchTerm} onSearch={handleSearch} />
       <hr />
       <List list={searchedStories} />
     </div>
   );
 };
 
-const Search = (props) => {
-  const handleChange = (event) => {
-    props.onSearch(event);
-  };
+const Search = ({ onSearch, search }) => (
+  <div>
+    <label htmlFor="search">Search: </label>
+    <input id="search" type="text" value={search} onChange={onSearch} />
+    <p>Value you typed is : <strong>{search}</strong></p>
+  </div>
 
-  return (
-    <div>
-      <label htmlFor="search">Search: </label>
-      <input id="search" type="text" onChange={handleChange} />
-    </div>
-  );
-};
+);
 
-const List = (props) => (
+const List = ({ list }) => (
   <ul>
-    {props.list.map((item) => (
-      <Item key={item.objectID} item={item} />
+    {list.map(({ objectID, ...item }) => (
+      // sending item as spread operator to item component
+      <Item key={objectID} {...item} />
     ))}
   </ul>
 );
 
-const Item = (props) => (
+const Item = ({ title, url, author, num_comments, points }) => (
   <li>
     <span>
-      <a href={props.item.url}>{props.item.title}</a>
+      <a href={url}>{title}</a>
     </span>
-    <span>{props.item.author}</span>
-    <span>{props.item.num_comments}</span>
-    <span>{props.item.points}</span>
+    <span>{author}</span>
+    <span>{num_comments}</span>
+    <span>{points}</span>
   </li>
 );
 
