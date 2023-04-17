@@ -20,7 +20,6 @@ const App = () => {
     },
   ];
   //set a custom hook that syn value of search and local storage 
-
   const useSemiPersistentState = (key, initialState) => {
     const [value, setValue] = React.useState(
       //the initial value is either the one from search history or 'React' word
@@ -59,11 +58,12 @@ const App = () => {
 };
 
 const Search = ({ onSearch, search }) => (
-  <div>
+  //wrap the elements in a react fragment
+  <>
     <label htmlFor="search">Search: </label>
     <input id="search" type="text" value={search} onChange={onSearch} />
     <p>Value you typed is : <strong>{search}</strong></p>
-  </div>
+  </>
 
 );
 
