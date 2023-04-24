@@ -25,7 +25,6 @@ const App = () => {
       //the initial value is either the one from search history or 'React' word
       localStorage.getItem(key) || initialState
     );
-
     //set use effect hook to keep history of last search
     React.useEffect(() => {
       localStorage.setItem(key, value);  //use a flexible key to do not overwrite the value of local storage
@@ -33,10 +32,8 @@ const App = () => {
 
     return [value, setValue];
   }
+
   const [searchTerm, setSearchTerm] = useSemiPersistentState('search', 'React');
-
-
-
   //received the value of search input and update the setSearchTerm function
   const handleSearch = (event) => {
     setSearchTerm(event.target.value);
@@ -50,22 +47,38 @@ const App = () => {
   return (
     <div>
       <h1>My Hacker Stories</h1>
-      <Search search={searchTerm} onSearch={handleSearch} />
+      <InputWithLabel
+        id="search"
+        label="search"
+        value={searchTerm}
+        onInputChange={handleSearch}
+      >
+        <strong>Search: </strong>  {/* a component composition that can be accessed as children in InputWithLabel */}
+      </InputWithLabel>
       <hr />
       <List list={searchedStories} />
     </div>
   );
 };
 
-const Search = ({ onSearch, search }) => (
-  //wrap the elements in a react fragment
+//define a reusable component for input and label, we replace it with search component
+const InputWithLabel = ({ id, value, onInputChange, type = 'text', children }) => (
   <>
-    <label htmlFor="search">Search: </label>
-    <input id="search" type="text" value={search} onChange={onSearch} />
-    <p>Value you typed is : <strong>{search}</strong></p>
+    <label htmlFor={id}>{children}</label>
+    &nbsp;
+    <input id={id} type={type} value={value} onChange={onInputChange}></input>
   </>
+)
+//No more use, replaced with InputWithLabel
+// const Search = ({ onSearch, search }) => (
+//   //wrap the elements in a react fragment
+//   <>
+//     <label htmlFor="search">Search: </label>
+//     <input id="search" type="text" value={search} onChange={onSearch} />
+//     <p>Value you typed is : <strong>{search}</strong></p>
+//   </>
 
-);
+// );
 
 const List = ({ list }) => (
   <ul>
