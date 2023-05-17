@@ -1,36 +1,9 @@
-import * as React from 'react';
+import * as React from "react";
 
-const initialStories = [
-  {
-    title: 'React',
-    url: 'https://reactjs.org/',
-    author: 'Jordan Walke',
-    num_comments: 3,
-    points: 4,
-    objectID: 0,
-  },
-  {
-    title: 'Redux',
-    url: 'https://redux.js.org/',
-    author: 'Dan Abramov, Andrew Clark',
-    num_comments: 2,
-    points: 5,
-    objectID: 1,
-  },
-];
-
-// instead of getting stories form array, we will get if from an API
-const getAsyncStories = () =>
-  new Promise((resolve) =>
-    setTimeout(
-      () => resolve({ data: { stories: initialStories } }),
-      2000
-    )
-  );
+const API_ENDPOINT = "https://hn.algolia.com/api/v1/search?query=";
 
 const App = () => {
-
-  //set a custom hook that syn value of search and local storage 
+  //set a custom hook that syn value of search and local storage
   const useSemiPersistentState = (key, initialState) => {
     const [value, setValue] = React.useState(
       //the initial value is either the one from search history or 'React' word
@@ -38,36 +11,36 @@ const App = () => {
     );
     //set use effect hook to keep history of last search
     React.useEffect(() => {
-      localStorage.setItem(key, value);  //use a flexible key to do not overwrite the value of local storage
+      localStorage.setItem(key, value); //use a flexible key to do not overwrite the value of local storage
     }, [key, value]);
 
     return [value, setValue];
-  }
+  };
 
   //use a reducer function to better manage the state of stories
   const storiesReducer = (state, action) => {
     switch (action.type) {
-      case 'STORIES_FETCH_INIT':
+      case "STORIES_FETCH_INIT":
         return {
           ...state,
           isLoading: true,
           isError: false,
-        }
-      case 'STORIES_FETCH_SUCCESS':
+        };
+      case "STORIES_FETCH_SUCCESS":
         return {
           ...state,
           isLoading: false,
           isError: false,
           data: action.payload,
-        }
-      case 'STORIES_FETCH_FAILURE':
+        };
+      case "STORIES_FETCH_FAILURE":
         return {
           ...state,
           isLoading: false,
           isError: true,
-        }
+        };
 
-      case 'REMOVE_STORY':
+      case "REMOVE_STORY":
         return {
           ...state,
           data: state.data.filter(
@@ -78,32 +51,54 @@ const App = () => {
       default:
         throw new Error();
     }
-  }
+  };
 
-  const [searchTerm, setSearchTerm] = useSemiPersistentState('search', 'React');
+  const [searchTerm, setSearchTerm] = useSemiPersistentState("search", "React");
+
+  const [url, setUrl] = React.useState(`${API_ENDPOINT}${searchTerm}`);
+
   //use a reducer hook instead of state hook for stories state
-  const [stories, dispatchStories] = React.useReducer(storiesReducer,
-    { data: [], isLoading: false, isError: false }
-  );
+  const [stories, dispatchStories] = React.useReducer(storiesReducer, {
+    data: [],
+    isLoading: false,
+    isError: false,
+  });
+
+  const handleSearchInput = (event) => {
+    setSearchTerm(event.target.value);
+  };
+
+  //update the state of url after pressing the submit button
+  const handleSearchSubmit = () => {
+    setUrl(`${API_ENDPOINT}${searchTerm}`);
+  };
+
+  // create a memoized function using useCallback hook to run only when search term is updated
+  const handleFetchStories = React.useCallback(() => {
+    if (searchTerm === "") return;
+    dispatchStories({ type: "STORIES_FETCH_INIT" });
+
+    //fetch stories form server according to search term state
+    fetch(url)
+      .then((response) => response.json())
+      .then((result) => {
+        dispatchStories({
+          type: "STORIES_FETCH_SUCCESS",
+          payload: result.hits,
+        });
+      })
+      .catch(() => dispatchStories({ type: "STORIES_FETCH_FAILURE" }));
+  }, [url]);
 
   // use a side effect to display stories from promise
   React.useEffect(() => {
-    dispatchStories({ type: 'STORIES_FETCH_INIT' });
-
-    getAsyncStories()
-      .then((result) => {
-        dispatchStories({
-          type: 'STORIES_FETCH_SUCCESS',
-          payload: result.data.stories,
-        });
-      })
-      .catch(() => dispatchStories({ type: 'STORIES_FETCH_FAILURE' }));
-  }, []);
+    handleFetchStories();
+  }, [handleFetchStories]);
 
   //filter stories and remove the ones that does not meet the condition
   const handleRemoveStory = (item) => {
     dispatchStories({
-      type: 'REMOVE_STORY',
+      type: "REMOVE_STORY",
       payload: item,
     });
   };
@@ -113,11 +108,6 @@ const App = () => {
     setSearchTerm(event.target.value);
   };
 
-  // filter stories array by value reciving from search input 
-  const searchedStories = stories.data.filter((story) =>
-    story.title.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
   return (
     <div>
       <h1>My Hacker Stories</h1>
@@ -125,31 +115,40 @@ const App = () => {
         id="search"
         label="search"
         value={searchTerm}
-        onInputChange={handleSearch}
+        isFocused
+        onInputChange={handleSearchInput}
       >
-        <strong>Search: </strong>  {/* a component composition that can be accessed as children in InputWithLabel */}
+        <strong>Search: </strong>{" "}
+        {/* a component composition that can be accessed as children in InputWithLabel */}
       </InputWithLabel>
+      <button type="button" disabled={!searchTerm} onClick={handleSearchSubmit}>
+        Submit
+      </button>
       <hr />
       {stories.isError && <p>Something went wrong ...</p>}
-      {stories.isLoading ? <p>IS loading..</p> :
-        <List
-          list={searchedStories}
-          onRemoveItem={handleRemoveStory}
-        />
-      }
-
+      {stories.isLoading ? (
+        <p>IS loading..</p>
+      ) : (
+        <List list={stories.data} onRemoveItem={handleRemoveStory} />
+      )}
     </div>
   );
 };
 
 //define a reusable component for input and label, we replace it with search component
-const InputWithLabel = ({ id, value, onInputChange, type = 'text', children }) => (
+const InputWithLabel = ({
+  id,
+  value,
+  onInputChange,
+  type = "text",
+  children,
+}) => (
   <>
     <label htmlFor={id}>{children}</label>
     &nbsp;
     <input id={id} type={type} value={value} onChange={onInputChange}></input>
   </>
-)
+);
 //No more use, replaced with InputWithLabel
 // const Search = ({ onSearch, search }) => (
 //   //wrap the elements in a react fragment
@@ -164,11 +163,7 @@ const InputWithLabel = ({ id, value, onInputChange, type = 'text', children }) =
 const List = ({ list, onRemoveItem }) => (
   <ul>
     {list.map((item) => (
-      <Item
-        key={item.objectID}
-        item={item}
-        onRemoveItem={onRemoveItem}
-      />
+      <Item key={item.objectID} item={item} onRemoveItem={onRemoveItem} />
     ))}
   </ul>
 );
