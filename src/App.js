@@ -1,4 +1,5 @@
 import * as React from "react";
+import axios from "axios";
 
 const API_ENDPOINT = "https://hn.algolia.com/api/v1/search?query=";
 
@@ -74,20 +75,20 @@ const App = () => {
   };
 
   // create a memoized function using useCallback hook to run only when search term is updated
-  const handleFetchStories = React.useCallback(() => {
+  const handleFetchStories = React.useCallback(async () => {
     if (searchTerm === "") return;
     dispatchStories({ type: "STORIES_FETCH_INIT" });
+    try {
+      //fetch stories form server according to search term state
+      const result = await axios.get(url);
 
-    //fetch stories form server according to search term state
-    fetch(url)
-      .then((response) => response.json())
-      .then((result) => {
-        dispatchStories({
-          type: "STORIES_FETCH_SUCCESS",
-          payload: result.hits,
-        });
-      })
-      .catch(() => dispatchStories({ type: "STORIES_FETCH_FAILURE" }));
+      dispatchStories({
+        type: "STORIES_FETCH_SUCCESS",
+        payload: result.data.hits,
+      });
+    } catch {
+      dispatchStories({ type: "STORIES_FETCH_FAILURE" });
+    }
   }, [url]);
 
   // use a side effect to display stories from promise
