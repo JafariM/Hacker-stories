@@ -2,6 +2,7 @@ import * as React from "react";
 import axios from "axios";
 import styled from "styled-components";
 import { ReactComponent as Check } from "./check.svg";
+import { type } from "os";
 
 const API_ENDPOINT = "https://hn.algolia.com/api/v1/search?query=";
 
@@ -69,7 +70,10 @@ const StyledInput = styled.input`
 `;
 
 //set a custom hook that syn value of search and local storage
-const useSemiPersistentState = (key, initialState) => {
+const useSemiPersistentState = (
+  key : string,
+  initialState:string
+  ): [string, (newValue: string) => void] => {
   const [value, setValue] = React.useState(
     //the initial value is either the one from search history or 'React' word
     localStorage.getItem(key) || initialState
@@ -81,9 +85,47 @@ const useSemiPersistentState = (key, initialState) => {
 
   return [value, setValue];
 };
+// custom typescript types
+type Story={
+  objectID: string;
+  url: string;
+  title: string;
+  author: string;
+  num_comments: number;
+  points: number;
+};
+
+type Stories = Array<Story>;
+
+type StoriesState = {
+  data: Stories;
+  isLoading: boolean;
+  isError: boolean;
+}
+
+interface StoriesFetchInitAction{
+  type: 'STORIES_FETCH_INIT';
+}
+interface StoriesFetchSuccessAction{
+  type:'STORIES_FETCH_SUCCESS';
+  payload: Stories;
+}
+interface StoriesFetchFailureAction{
+  type:'STORIES_FETCH_FAILURE';
+}
+interface StoriesRemoveAction{
+  type:'REMOVE_STORY';
+  payload: Story;
+}
+
+type StoriesAction =
+| StoriesFetchInitAction
+| StoriesFetchSuccessAction
+| StoriesFetchFailureAction
+| StoriesRemoveAction;
 
 //use a reducer function to better manage the state of stories
-const storiesReducer = (state, action) => {
+const storiesReducer = (state : StoriesState, action: StoriesAction) => {
   switch (action.type) {
     case "STORIES_FETCH_INIT":
       return {
@@ -104,7 +146,6 @@ const storiesReducer = (state, action) => {
         isLoading: false,
         isError: true,
       };
-
     case "REMOVE_STORY":
       return {
         ...state,
@@ -112,14 +153,12 @@ const storiesReducer = (state, action) => {
           (story) => action.payload.objectID !== story.objectID
         ),
       };
-
     default:
       throw new Error();
   }
 };
 
 const getSumComments = (stories) => {
-  console.log("C");
   return stories.data.reduce((result, value) => result + value.num_comments, 0);
 };
 
@@ -135,12 +174,12 @@ const App = () => {
     isError: false,
   });
 
-  const handleSearchInput = (event) => {
+  const handleSearchInput = (event :React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(event.target.value);
   };
 
   //update the state of url after pressing the submit button
-  const handleSearchSubmit = (event) => {
+  const handleSearchSubmit = (event :React.FormEvent<HTMLFormElement>) => {
     setUrl(`${API_ENDPOINT}${searchTerm}`);
     event.preventDefault();
   };
@@ -168,21 +207,19 @@ const App = () => {
   }, [handleFetchStories]);
 
   //filter stories and remove the ones that does not meet the condition
-  const handleRemoveStory = React.useCallback((item) => {
+  const handleRemoveStory = (item : Story) =>
     dispatchStories({
       type: "REMOVE_STORY",
       payload: item,
     });
-  }, []);
 
   //received the value of search input and update the setSearchTerm function
   const handleSearch = (event) => {
     setSearchTerm(event.target.value);
   };
-  console.log("B:App");
 
   //used useMemo hook to prevent the function to redefine and calculate in every rerendering of App component
-  const sumComments = React.useMemo(() => getSumComments(stories), [stories]);
+  const sumComments = getSumComments(stories);
   return (
     <StyledContainer>
       <StyledHeadlinePrimary>My Hacker Stories</StyledHeadlinePrimary>
@@ -203,17 +240,21 @@ const App = () => {
     </StyledContainer>
   );
 };
+//typescript for props of SearchFrom component
+type SearchFromProps= {
+  searchTerm : string;
+  onSearchInput: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onSearchSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
+}
 
 const SearchForm = ({
   searchTerm,
   onSearchInput,
   onSearchSubmit,
-  className,
-}) => (
+}: SearchFromProps) => (
   <StyledSearchForm onSubmit={onSearchSubmit}>
     <InputWithLabel
       id="search"
-      label="search"
       value={searchTerm}
       isFocused
       onInputChange={onSearchInput}
@@ -226,15 +267,32 @@ const SearchForm = ({
     </StyledButtonLarge>
   </StyledSearchForm>
 );
-
+type InputWithLabelProps ={
+  id : string;
+  value: string;
+  type? ; string;
+  onInputChange: (event: React.ChangeEvent<HTMLInputElement>)=>void;
+  isFocused?: boolean;
+  children: React.ReactNode;
+}
 //define a reusable component for input and label, we replace it with search component
 const InputWithLabel = ({
   id,
   value,
   onInputChange,
+  isFocused,
   type = "text",
   children,
-}) => (
+}: InputWithLabelProps) => {
+  const inputRef = React.useRef<HTMLInputElement>(null!);
+
+  React.useEffect(() => {
+    if (isFocused && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isFocused]);
+  
+  return(
   <>
     <StyledLabel htmlFor={id}>{children}</StyledLabel>
     &nbsp;
@@ -245,7 +303,7 @@ const InputWithLabel = ({
       onChange={onInputChange}
     ></StyledInput>
   </>
-);
+)};
 //No more use, replaced with InputWithLabel
 // const Search = ({ onSearch, search }) => (
 //   //wrap the elements in a react fragment
@@ -257,18 +315,25 @@ const InputWithLabel = ({
 
 // );
 
-const List = React.memo(
-  ({ list, onRemoveItem }) =>
-    console.log("B:list") || (
-      <ul>
-        {list.map((item) => (
-          <Item key={item.objectID} item={item} onRemoveItem={onRemoveItem} />
-        ))}
-      </ul>
-    )
-);
+type ListProps = {
+  list: Stories;
+  onRemoveItem : (item: Story)=>void;
+}
+const List = ({ list, onRemoveItem } : ListProps) =>
+  (
+    <ul>
+      {list.map((item) => (
+        <Item key={item.objectID} item={item} onRemoveItem={onRemoveItem} />
+      ))}
+    </ul>
+  );
 
-const Item = ({ item, onRemoveItem }) => (
+
+  type ItemProps ={
+    item:Story;
+    onRemoveItem : (item: Story) => void;
+  }
+const Item = ({ item, onRemoveItem }:ItemProps)=> (
   <StyledItem>
     <StyledColumn width="40%">
       <a href={item.url}>{item.title}</a>
